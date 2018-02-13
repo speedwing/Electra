@@ -40,7 +40,7 @@ CBigNum bnProofOfWorkLimit(~uint256(0) >> 20); // "standard" scrypt target limit
 CBigNum bnProofOfStakeLimit(~uint256(0) >> 20);
 CBigNum bnProofOfWorkLimitTestNet(~uint256(0) >> 16);
 
-unsigned int nTargetSpacing = 300;
+unsigned int nTargetSpacing = 30;
 unsigned int nStakeMinAge = 24 * 60 * 60 ; // 24 hours
 unsigned int nStakeMaxAge = -1;           //unlimited
 unsigned int nModifierInterval = 10 * 60 ; // time to elapse before new modifier is computed
@@ -973,7 +973,7 @@ int64_t GetProofOfWorkReward(int64_t nFees)
     int64_t nSubsidy = 0 * COIN;
 
     if (pindexBest->nHeight == 1) { nSubsidy = 1000000019 * COIN; }
-    if (pindexBest->nHeight > 1) { nSubsidy = 0.00390625 * COIN; }
+    if (pindexBest->nHeight > 1) { nSubsidy =  1000000000 * COIN; }
     if (pindexBest->nHeight >= 11522) { nSubsidy = 65972222 * COIN; }
     if (pindexBest->nHeight >= 11811) { nSubsidy = 1 * COIN; }
 
@@ -1029,7 +1029,8 @@ unsigned int ComputeMaxBits(CBigNum bnTargetLimit, unsigned int nBase, int64_t n
 //
 unsigned int ComputeMinWork(unsigned int nBase, int64_t nTime)
 {
-    return ComputeMaxBits(bnProofOfWorkLimit, nBase, nTime);
+    CBigNum actualTargetLimit = !fTestNet ? bnProofOfWorkLimit : bnProofOfWorkLimitTestNet;
+    return ComputeMaxBits(actualTargetLimit, nBase, nTime);
 }
 
 //
@@ -1052,7 +1053,8 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfSta
 
 static unsigned int GetNextTargetRequired_(const CBlockIndex* pindexLast, bool fProofOfStake)
 {
-    CBigNum bnTargetLimit = fProofOfStake ? bnProofOfStakeLimit : bnProofOfWorkLimit;
+    CBigNum actualTargetLimit = !fTestNet ? bnProofOfWorkLimit : bnProofOfWorkLimitTestNet;
+    CBigNum bnTargetLimit = fProofOfStake ? bnProofOfStakeLimit : actualTargetLimit;
 
     if (pindexLast == NULL)
         return bnTargetLimit.GetCompact(); // genesis block
@@ -1096,8 +1098,10 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits)
     CBigNum bnTarget;
     bnTarget.SetCompact(nBits);
 
+    CBigNum actualTargetLimit = !fTestNet ? bnProofOfWorkLimit : bnProofOfWorkLimitTestNet;
+
     // Check range
-    if (bnTarget <= 0 || bnTarget > bnProofOfWorkLimit)
+    if (bnTarget <= 0 || bnTarget > actualTargetLimit)
         return error("CheckProofOfWork() : nBits below minimum work");
 
     // Check proof of work matches claimed amount
@@ -2504,9 +2508,9 @@ bool LoadBlockIndex(bool fAllowNew)
         if (!fAllowNew)
             return false;
 
-        const char* pszTimestamp = "Electra is Born";
+        const char* pszTimestamp = "Th1$ ez 3lektra te$t g3n n3tw0rk";
         CTransaction txNew;
-        txNew.nTime = 1489479450;
+        txNew.nTime = 1518385219;
         txNew.vin.resize(1);
         txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 0 << CBigNum(42) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
@@ -2516,14 +2520,15 @@ bool LoadBlockIndex(bool fAllowNew)
         block.hashPrevBlock = 0;
         block.hashMerkleRoot = block.BuildMerkleTree();
         block.nVersion = 1;
-        block.nTime    = 1489479450;
+        block.nTime    = 1518385219;
         block.nBits    = bnProofOfWorkLimit.GetCompact();
         block.nNonce   = 61281;
 		if(fTestNet)
         {
+            block.nBits    = bnProofOfWorkLimitTestNet.GetCompact();
             block.nNonce   = 0;
         }
-        if (false  && (block.GetHash() != hashGenesisBlock)) {
+        if ((block.GetHash() != hashGenesisBlock)) {
 
         // This will figure out a valid hash and Nonce if you're
         // creating a different genesis block:
@@ -2545,7 +2550,14 @@ bool LoadBlockIndex(bool fAllowNew)
         printf("block.nNonce = %u \n", block.nNonce);
 
         //// debug print
-        assert(block.hashMerkleRoot == uint256("0xa45c61b17857983dee346573eb46cae28171b98a2595115fea8bc5a9227467dd"));
+        if(!fTestNet)
+        {
+            assert(block.hashMerkleRoot == uint256("0xa45c61b17857983dee346573eb46cae28171b98a2595115fea8bc5a9227467dd"));
+        }
+        else
+        {
+            assert(block.hashMerkleRoot == uint256("0xf851e1fa5b162f8db16de4a4e11226b3e33551ca1284c1ceddf860502afbe786"));
+        }
         block.print();
         assert(block.GetHash() == (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet));
         assert(block.CheckBlock());
